@@ -1,0 +1,16 @@
+{
+    "name": "pbergman/fifo",
+    "description": "a posix fifo wrapper to use for ipc",
+    "license": "MIT",
+    "authors": [
+        {
+            "name": "Philip Bergman",
+            "email": "pbergman@live.nl"
+        }
+    ],
+  "autoload": {
+    "psr-0": { "": "src/" }
+  },
+  "minimum-stability": "dev",
+    "require": {}
+}
