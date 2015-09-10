@@ -21,6 +21,19 @@ abstract class AbstractHeader
     protected $pid;
 
     /**
+     * @param int       $type
+     * @param int|null  $pid
+     */
+    function __construct($type, $pid = null)
+    {
+        $this->type = $type;
+
+        if (!is_null($pid)) {
+            $this->pid = $pid;
+        }
+    }
+
+    /**
      * Should return binary representation of header
      *
      * @return string

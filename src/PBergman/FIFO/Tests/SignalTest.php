@@ -19,6 +19,9 @@ class SignalTest extends \PHPUnit_Framework_TestCase
             $this->assertInstanceOf('PBergman\FIFO\Header\AbstractHeader', $result->getHeader());
             $this->assertInstanceOf('PBergman\FIFO\Node\DataNode', $result);
             $this->assertEquals($result->getData(), $signal);
+            $this->assertFalse($fifo->read());
+            $this->assertFalse($fifo->read());
+            $this->assertFalse($fifo->read());
         }
     }
 

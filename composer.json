@@ -1,6 +1,6 @@
 {
     "name": "pbergman/fifo",
-    "description": "a posix fifo wrapper to use for ipc",
+    "description": "a php posix fifo (named pipes) wrapper to use for ipc",
     "license": "MIT",
     "authors": [
         {

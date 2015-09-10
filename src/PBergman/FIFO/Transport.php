@@ -12,6 +12,11 @@ use PBergman\FIFO\Header\SignalHeader;
 use PBergman\FIFO\Helper\StreamWrapper;
 use PBergman\FIFO\Node\DataNode;
 
+/**
+ * Class Transport
+ *
+ * @package PBergman\FIFO
+ */
 class Transport
 {
     /** @var string  */
@@ -19,15 +24,15 @@ class Transport
     /** @var  StreamWrapper */
     protected $stream;
     /** @var bool  */
-    protected $auto_close;
+    protected $autoClose;
 
     /**
-     * @param   string $file
+     * @param   string      $file
      * @param   null|string $folder
-     * @param   bool $close
+     * @param   bool        $autoClose
      * @throws TransportException
      */
-    function __construct($file, $folder = null, $close = true)
+    function __construct($file, $folder = null, $autoClose = true)
     {
         if (is_null($folder)) {
             $folder = sys_get_temp_dir();
@@ -44,16 +49,16 @@ class Transport
         }
 
         $this->fifo = sprintf('%s/%s', $folder, $file);
-        $this->auto_close = $close;
+        $this->autoClose = $autoClose;
 
         if (!file_exists($this->fifo)) {
             if (false === posix_mkfifo($this->fifo, 0600)) {
                 throw TransportException::posixError();
             }
-        } else {
-            if (false == (stat($this->fifo)['mode'] & 0010000)) {
-                throw TransportException::fileIsNotANamedPipe($this->fifo);
-            }
+        }
+
+        if (false == (stat($this->fifo)['mode'] & 0010000)) {
+            throw TransportException::fileIsNotANamedPipe($this->fifo);
         }
 
         $this->stream = new StreamWrapper($this->fifo);
@@ -64,7 +69,7 @@ class Transport
      */
     function __destruct()
     {
-        if ($this->auto_close) {
+        if ($this->autoClose) {
             $this->stream->close();
         }
     }
@@ -97,11 +102,10 @@ class Transport
         }
 
         $maxSize = pow(2,16) - 1; // Max for chunks of unsigned 16 bit parts
-        $header = new DataHeader();
+        $header = new DataHeader(posix_getpid());
         $header
             ->setSerialized($serialize)
             ->setCompressed($compress)
-            ->setPid(posix_getpid())
             ->setChunkCount(ceil((strlen($data)/$maxSize)));
 
 
@@ -131,7 +135,7 @@ class Transport
 
                 switch ($header['type']) {
                     case AbstractHeader::TYPE_DATA:
-                        $header = (new DataHeader())->setPid($header['pid']);
+                        $header = new DataHeader($header['pid']);
                         $header
                             ->setSerialized(unpack('C', $s->read(1))[1])
                             ->setCompressed(unpack('C', $s->read(1))[1])
@@ -159,7 +163,7 @@ class Transport
                     case AbstractHeader::TYPE_SIGNAL:
                         $return = new DataNode(
                             unpack('C', $s->read(1))[1],
-                            (new SignalHeader())->setPid($header['pid'])
+                            new SignalHeader($header['pid'])
                         );
                         break;
                 }

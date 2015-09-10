@@ -13,11 +13,11 @@ namespace PBergman\FIFO\Header;
 class SignalHeader extends AbstractHeader
 {
     /**
-     * @inheritdoc
+     * @param int|null $pid
      */
-    function __construct()
+    function __construct($pid = null)
     {
-        $this->type = self::TYPE_SIGNAL;
+        parent::__construct(self::TYPE_SIGNAL, $pid);
     }
 
     /**

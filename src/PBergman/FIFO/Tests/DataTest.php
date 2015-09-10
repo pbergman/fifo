@@ -22,6 +22,9 @@ class TreeHelperTest extends \PHPUnit_Framework_TestCase
         $this->assertEquals($result->getData()->foo, $object->foo);
         $this->assertEquals($result->getData()->bar, $object->bar);
         $this->assertEquals($result->getHeader()->getPid(), posix_getpid());
+        $this->assertFalse($fifo->read());
+        $this->assertFalse($fifo->read());
+        $this->assertFalse($fifo->read());
     }
 
     public function testFork()

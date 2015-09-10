@@ -17,14 +17,14 @@ class DataHeader extends AbstractHeader
     /** @var int */
     protected $compressed;
     /** @var int  */
-    protected $chunk_count;
+    protected $chunkCount;
 
     /**
-     * @inheritdoc
+     * @param int|null $pid
      */
-    function __construct()
+    function __construct($pid = null)
     {
-        $this->type = self::TYPE_DATA;
+        parent::__construct(self::TYPE_DATA, $pid);
     }
 
     /**
@@ -40,7 +40,7 @@ class DataHeader extends AbstractHeader
             $this->pid,
             $this->serialized,
             $this->compressed,
-            $this->chunk_count
+            $this->chunkCount
         );
     }
 
@@ -85,16 +85,16 @@ class DataHeader extends AbstractHeader
      */
     public function getChunkCount()
     {
-        return $this->chunk_count;
+        return $this->chunkCount;
     }
 
     /**
      * @param   int $chunk_count
      * @return  $this;
      */
-    public function setChunkCount($chunk_count)
+    public function setChunkCount($chunkCount)
     {
-        $this->chunk_count = (int) $chunk_count;
+        $this->chunkCount = (int) $chunkCount;
         return $this;
     }
 }
