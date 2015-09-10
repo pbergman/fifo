@@ -73,5 +73,7 @@ class TreeHelperTest extends \PHPUnit_Framework_TestCase
                 $this->assertEquals($result->getData(), $i);
             }
         }
+
+        $fifo->clear();
     }
 }

@@ -84,7 +84,19 @@ class Transport
     function __destruct()
     {
         if ($this->autoClose) {
-            $this->stream->close();
+            $this->clear(true);
+        }
+    }
+
+    /**
+     * Close resource and remove pipe
+     */
+    public function clear()
+    {
+        $this->stream->close();
+
+        if (file_exists($this->fifo)) {
+            unlink($this->fifo);
         }
     }
 
