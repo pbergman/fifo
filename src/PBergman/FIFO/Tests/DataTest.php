@@ -27,6 +27,35 @@ class TreeHelperTest extends \PHPUnit_Framework_TestCase
         $this->assertFalse($fifo->read());
     }
 
+    public function testSerialize()
+    {
+        $fifo = new Transport('test.tmp');
+        $data = [
+            [1, new \stdClass()],
+            [1, []],
+            [0, null],
+            [0, 'foo bar'],
+        ];
+        foreach ($data as $info) {
+            $fifo->write($info[1]);
+        }
+        foreach ($data as $info) {
+            $result = $fifo->read();
+            $this->assertEquals($result->getHeader()->isSerialized(), (bool) $info[0]);
+        }
+    }
+
+    /**
+     * @expectedException              \PBergman\FIFO\Exception\InvalidArgumentException
+     * @expectedExceptionMessageRegExp #^Unsupported type: "\w+"$#
+     */
+    public function testException()
+    {
+        $fifo = new Transport('test.tmp');
+        $fifo->write(fopen('php://memory', 'r+'));
+    }
+
+
     public function testFork()
     {
         $fifo = new Transport(posix_getpid(), null, false);

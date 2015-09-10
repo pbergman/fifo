@@ -5,6 +5,7 @@
  */
 namespace PBergman\FIFO;
 
+use PBergman\FIFO\Exception\InvalidArgumentException;
 use PBergman\FIFO\Exception\TransportException;
 use PBergman\FIFO\Header\AbstractHeader;
 use PBergman\FIFO\Header\DataHeader;
@@ -34,6 +35,22 @@ class Transport
      */
     function __construct($file, $folder = null, $autoClose = true)
     {
+        $this->intializeFile($file, $folder);
+        $this->autoClose = $autoClose;
+        $this->stream = new StreamWrapper(fopen($this->fifo, 'r+'));
+        $this->stream->setBlocking(false);
+    }
+
+    /**
+     * check, create and validate the fifo file/folder
+     *
+     * @param string        $file
+     * @param string|null   $folder
+     *
+     * @throws TransportException
+     */
+    protected function intializeFile($file, $folder = null)
+    {
         if (is_null($folder)) {
             $folder = sys_get_temp_dir();
         }
@@ -49,7 +66,6 @@ class Transport
         }
 
         $this->fifo = sprintf('%s/%s', $folder, $file);
-        $this->autoClose = $autoClose;
 
         if (!file_exists($this->fifo)) {
             if (false === posix_mkfifo($this->fifo, 0600)) {
@@ -60,8 +76,6 @@ class Transport
         if (false == (stat($this->fifo)['mode'] & 0010000)) {
             throw TransportException::fileIsNotANamedPipe($this->fifo);
         }
-
-        $this->stream = new StreamWrapper($this->fifo);
     }
 
     /**
@@ -78,46 +92,53 @@ class Transport
      * @param   $chunk
      * @return  string
      */
-    protected function packChuck($chunk)
+    protected function packChuck($chunk, $length)
     {
-        return pack('Sa4', strlen($chunk), hash('crc32b', $chunk, true)) . $chunk;
+        return pack(sprintf('Sa4a%s', $length), $length, hash('crc32b', $chunk, true), $chunk);
     }
 
     /**
      * write mixed data to fifo handler
      *
-     * @param mixed     $data
-     * @param bool      $serialize
-     * @param bool      $compress
-     * @return int
+     * @param   mixed $data
+     * @param   bool $compress
+     * @return  int
+     * @throws  InvalidArgumentException|Exception\StreamException
      */
-    public function write($data, $serialize = true, $compress = true)
+    public function write($data, $compress = true)
     {
-        if ($serialize) {
-            $data = serialize($data);
+        $maxSize = pow(2,16) - 1; // Max for chunks of unsigned 16 bit parts
+        $header = new DataHeader(posix_getpid());
+
+        switch (gettype($data)) {
+            case 'array':
+            case 'object':
+                    $data = serialize($data);
+                    $header->setSerialized(1);
+                break;
+            case 'resource':
+            case 'unknown type':
+                throw new InvalidArgumentException(sprintf('Unsupported type: "%s"', gettype($data)));
+
         }
 
         if ($compress) {
             $data = gzcompress($data, 9);
         }
 
-        $maxSize = pow(2,16) - 1; // Max for chunks of unsigned 16 bit parts
-        $header = new DataHeader(posix_getpid());
         $header
-            ->setSerialized($serialize)
             ->setCompressed($compress)
             ->setChunkCount(ceil((strlen($data)/$maxSize)));
 
-
-        $ret = $this->stream->lock(function(StreamWrapper $s) use ($header, $data, $maxSize){
-            $ret = $s->write((string) $header);
+        return $this->stream->lock(function(StreamWrapper $s) use ($header, $data, $maxSize){
+            $bytes = $s->write((string) $header);
             foreach (str_split($data, $maxSize) as $part) {
-                $ret += $s->write($this->packChuck($part));
+                $bytes += $s->write($this->packChuck($part, strlen($part)));
             }
-            return $ret;
+            $s->flush();
+            return $bytes;
         });
 
-        return $ret;
     }
 
     /**
@@ -126,51 +147,51 @@ class Transport
      */
     public function read()
     {
+        if (false === (bool) $this->stream->select()) {
+            return false;
+        }
+
         return $this->stream->lock(function(StreamWrapper $s){
 
-            if (null !== ($data = $s->read(3))) {
+            $header = unpack('Ctype/Spid', $s->read(3));
+            $return = [];
 
-                $header = unpack('Ctype/Spid', $data);
-                $return = [];
-
-                switch ($header['type']) {
-                    case AbstractHeader::TYPE_DATA:
-                        $header = new DataHeader($header['pid']);
-                        $header
-                            ->setSerialized(unpack('C', $s->read(1))[1])
-                            ->setCompressed(unpack('C', $s->read(1))[1])
-                            ->setChunkCount(unpack('C', $s->read(1))[1]);
-                        $data = null;
-                        for ($i = 0; $i < $header->getChunkCount(); $i++) {
-                            $info = unpack('Slength/a4crc', $s->read(6));
-                            $part = $s->read($info['length']);
-                            $crc = hash('crc32b', $part, true);
-                            if ($info['crc'] !==  $crc) {
-                                throw TransportException::checksumMisMatch($info['crc'], $crc);
-                            }
-                            $data .= $part;
+            switch ($header['type']) {
+                case AbstractHeader::TYPE_DATA:
+                    $header = new DataHeader($header['pid']);
+                    $header
+                        ->setSerialized(unpack('C', $s->read(1))[1])
+                        ->setCompressed(unpack('C', $s->read(1))[1])
+                        ->setChunkCount(unpack('C', $s->read(1))[1]);
+                    $data = null;
+                    for ($i = 0; $i < $header->getChunkCount(); $i++) {
+                        $info = unpack('Slength/a4crc', $s->read(6));
+                        $part = $s->read($info['length']);
+                        $crc = hash('crc32b', $part, true);
+                        if ($info['crc'] !==  $crc) {
+                            throw TransportException::checksumMisMatch($info['crc'], $crc);
                         }
-                        if ($header->isCompressed()) {
-                            $data = gzuncompress($data);
-                        }
+                        $data .= $part;
+                    }
+                    if ($header->isCompressed()) {
+                        $data = gzuncompress($data);
+                    }
 
-                        if ($header->isSerialized()) {
-                            $data = unserialize($data);
-                        }
-                        $return = new DataNode($data, $header);
+                    if ($header->isSerialized()) {
+                        $data = unserialize($data);
+                    }
+                    $return = new DataNode($data, $header);
 
-                        break;
-                    case AbstractHeader::TYPE_SIGNAL:
-                        $return = new DataNode(
-                            unpack('C', $s->read(1))[1],
-                            new SignalHeader($header['pid'])
-                        );
-                        break;
-                }
-                return $return;
-            } else {
-                return false;
+                    break;
+                case AbstractHeader::TYPE_SIGNAL:
+                    $return = new DataNode(
+                        unpack('C', $s->read(1))[1],
+                        new SignalHeader($header['pid'])
+                    );
+                    break;
             }
+            return $return;
+
         }, LOCK_SH);
     }
 
@@ -181,8 +202,9 @@ class Transport
     public function signal($signal)
     {
         return $this->stream->lock(function(StreamWrapper $s) use ($signal) {
-            return $s->write(pack('CSC', AbstractHeader::TYPE_SIGNAL, posix_getpid(), $signal));
+            $bytes = $s->write(pack('CSC', AbstractHeader::TYPE_SIGNAL, posix_getpid(), $signal));
+            $s->flush();
+            return $bytes;
         });
     }
-
 }

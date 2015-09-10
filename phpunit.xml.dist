@@ -15,7 +15,7 @@
         >
     <testsuites>
         <testsuite name="FIFO Test Suite">
-            <directory>./Tests</directory>
+            <directory>./src/Tests</directory>
         </testsuite>
         <filter>
             <whitelist>
