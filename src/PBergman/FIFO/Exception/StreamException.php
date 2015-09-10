@@ -13,24 +13,6 @@ namespace PBergman\FIFO\Exception;
 class StreamException extends \Exception implements ExceptionInterface
 {
     /**
-     * @param $file
-     * @return StreamException
-     */
-    public static function fileNotAccessible($file)
-    {
-        return new self(sprintf('File "%s" does not exist or is not accessible', $file));
-    }
-
-    /**
-     * @param $file
-     * @return StreamException
-     */
-    public static function couldNotOpenFile($file)
-    {
-        return new self(sprintf('Could not open file: "%s"', $file));
-    }
-
-    /**
      * @return StreamException
      */
     public static function couldNotLock()

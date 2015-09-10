@@ -27,7 +27,7 @@ class TransportException extends \Exception implements ExceptionInterface
      */
     public static function posixError()
     {
-        return new self(posix_get_last_error());
+        return new self(sprintf('Posix error [%s]: "%s"', posix_get_last_error(), posix_strerror(posix_get_last_error())));
     }
 
     /**
@@ -46,5 +46,14 @@ class TransportException extends \Exception implements ExceptionInterface
     public static function fileIsNotANamedPipe($file)
     {
         return new self(sprintf('File "%s" is not a named pipe (fifo)', $file));
+    }
+
+    /**
+     * @param $file
+     * @return TransportException
+     */
+    public static function couldNotOpenFile($file)
+    {
+        return new self(sprintf('Could not open file: "%s"', $file));
     }
 }

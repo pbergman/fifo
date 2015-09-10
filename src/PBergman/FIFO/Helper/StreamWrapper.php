@@ -5,7 +5,8 @@
  */
 namespace PBergman\FIFO\Helper;
 
-use \PBergman\FIFO\Exception\StreamException;
+use PBergman\FIFO\Exception\InvalidArgumentException;
+use PBergman\FIFO\Exception\StreamException;
 
 /**
  * Class StreamWrapper
@@ -14,22 +15,26 @@ use \PBergman\FIFO\Exception\StreamException;
  */
 class StreamWrapper
 {
-    /** @var string  */
-    protected $file;
     /** @var resource */
     protected $resource;
 
+    const SELECT_WRITE = 1;
+    const SELECT_READ = 2;
+
     /**
-     * @inheritdoc
+     * @param   resource $resource
+     * @throws  InvalidArgumentException
      */
-    function __construct($file)
+    function __construct($resource)
     {
-        $this->file = $file;
-        $this->openFile($file);
+        if (!is_resource($resource)) {
+            throw new InvalidArgumentException(sprintf('Expecting a valid resource got: "%s"', gettype($resource)));
+        }
+        $this->resource = $resource;
     }
 
     /**
-     * this will do the callable between a lock and release or stream
+     * this will do the callable between a lock and release of stream
      *
      * @param   callable $c
      * @param   int $mode
@@ -56,8 +61,7 @@ class StreamWrapper
      */
     public function read($length)
     {
-        $data = fread($this->resource, $length);
-        return (empty($data)) ? null : $data;
+        return fread($this->resource, $length);
     }
 
     /**
@@ -67,9 +71,21 @@ class StreamWrapper
      */
     public function write($data, $length = null)
     {
-        $ret = fwrite($this->resource, $data, is_null($length) ? strlen($data) : $length);
-        fflush($this->resource);
-        return $ret;
+        return fwrite(
+            $this->resource,
+            $data,
+            is_null($length) ? strlen($data) : $length
+        );
+    }
+
+    /**
+     * Flushes the output to resource
+     *
+     * @return bool
+     */
+    public function flush()
+    {
+        return fflush($this->resource);
     }
 
     /**
@@ -83,21 +99,36 @@ class StreamWrapper
     }
 
     /**
-     * Check if file exists and open the file
+     * set stream to non-blocking/blocking
      *
-     * @param $file
-     * @throws
+     * @param   bool $blocking
+     * @return  bool
      */
-    protected function openFile($file)
+    public function setBlocking($blocking = true)
     {
-        if (!file_exists($file)) {
-            throw StreamException::fileNotAccessible($file);
+        return stream_set_blocking($this->resource, $blocking);
+    }
+
+    /**
+     * does a select on stream to check if
+     * there is something to read or write.
+     *
+     * @param   int   $mode
+     * @param   int   $timeout
+     * @return  int
+     */
+    public function select($mode = self::SELECT_READ, $timeout = 0)
+    {
+        $args = [[],[],[], $timeout];
+
+        if (self::SELECT_READ  === (self::SELECT_READ  & $mode)) {
+            $args[0][] = $this->resource;
         }
 
-        if (false === ($this->resource = fopen($file, 'r+'))) {
-            throw StreamException::couldNotOpenFile($file);
+        if (self::SELECT_WRITE === (self::SELECT_WRITE & $mode)) {
+            $args[1][] = $this->resource;
         }
 
-        stream_set_blocking($this->resource, 0);
+        return stream_select(...$args);
     }
 }
