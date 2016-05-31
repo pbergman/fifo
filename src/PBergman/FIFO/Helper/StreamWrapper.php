@@ -119,7 +119,7 @@ class StreamWrapper
      */
     public function select($mode = self::SELECT_READ, $timeout = 0)
     {
-        $args = array(array(),array(),array(),$timeout);
+        $args = [[],[],[], $timeout];
 
         if (self::SELECT_READ  === (self::SELECT_READ  & $mode)) {
             $args[0][] = $this->resource;
