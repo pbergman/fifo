@@ -125,8 +125,8 @@ class Transport
         switch (gettype($data)) {
             case 'array':
             case 'object':
-                    $data = serialize($data);
-                    $header->setSerialized(1);
+                $data = serialize($data);
+                $header->setSerialized(1);
                 break;
             case 'resource':
             case 'unknown type':
