@@ -106,7 +106,7 @@ class Transport
      * @param   $chunk
      * @return  string
      */
-    protected function packChuck($chunk, $length)
+    public function packChuck($chunk, $length)
     {
         return pack(sprintf('Sa4a%s', $length), $length, hash('crc32b', $chunk, true), $chunk);
     }
