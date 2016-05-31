@@ -61,8 +61,7 @@ class Transport
             }
         }
 
-        $sStrRevFolder = strrev($folder);
-        if ($sStrRevFolder[0] === '/') {
+        if (strrev($folder)[0] === '/') {
             $folder = substr($folder, 0, -1);
         }
 
@@ -74,8 +73,7 @@ class Transport
             }
         }
 
-        $aStatFifo = stat($this->fifo);
-        if (false == ($aStatFifo['mode'] & 0010000)) {
+        if (false == (stat($this->fifo)['mode'] & 0010000)) {
             throw TransportException::fileIsNotANamedPipe($this->fifo);
         }
     }
@@ -106,7 +104,7 @@ class Transport
      * @param   $chunk
      * @return  string
      */
-    public function packChuck($chunk, $length)
+    protected function packChuck($chunk, $length)
     {
         return pack(sprintf('Sa4a%s', $length), $length, hash('crc32b', $chunk, true), $chunk);
     }
@@ -127,8 +125,8 @@ class Transport
         switch (gettype($data)) {
             case 'array':
             case 'object':
-                    $data = serialize($data);
-                    $header->setSerialized(1);
+                $data = serialize($data);
+                $header->setSerialized(1);
                 break;
             case 'resource':
             case 'unknown type':
@@ -144,11 +142,10 @@ class Transport
             ->setCompressed($compress)
             ->setChunkCount(ceil((strlen($data)/$maxSize)));
 
-        $oItsMe = $this;
-        return $this->stream->lock(function(StreamWrapper $s) use ($header, $data, $maxSize, $oItsMe){
+        return $this->stream->lock(function(StreamWrapper $s) use ($header, $data, $maxSize){
             $bytes = $s->write((string) $header);
             foreach (str_split($data, $maxSize) as $part) {
-                $bytes += $s->write($oItsMe->packChuck($part, strlen($part)));
+                $bytes += $s->write($this->packChuck($part, strlen($part)));
             }
             $s->flush();
             return $bytes;
@@ -169,20 +166,15 @@ class Transport
         return $this->stream->lock(function(StreamWrapper $s){
 
             $header = unpack('Ctype/Spid', $s->read(3));
-            $return = array();
+            $return = [];
 
             switch ($header['type']) {
                 case AbstractHeader::TYPE_DATA:
                     $header = new DataHeader($header['pid']);
-
-                    $aSerialized = unpack('C', $s->read(1));
-                    $aCompressed = unpack('C', $s->read(1));
-                    $aChunkCount = unpack('C', $s->read(1));
-
                     $header
-                        ->setSerialized($aSerialized[1])
-                        ->setCompressed($aCompressed[1])
-                        ->setChunkCount($aChunkCount[1]);
+                        ->setSerialized(unpack('C', $s->read(1))[1])
+                        ->setCompressed(unpack('C', $s->read(1))[1])
+                        ->setChunkCount(unpack('C', $s->read(1))[1]);
                     $data = null;
                     for ($i = 0; $i < $header->getChunkCount(); $i++) {
                         $info = unpack('Slength/a4crc', $s->read(6));
@@ -204,11 +196,8 @@ class Transport
 
                     break;
                 case AbstractHeader::TYPE_SIGNAL:
-
-                    $aUnpack = unpack('C', $s->read(1));
-
                     $return = new DataNode(
-                        $aUnpack[1],
+                        unpack('C', $s->read(1))[1],
                         new SignalHeader($header['pid'])
                     );
                     break;
