@@ -41,7 +41,7 @@ class StreamWrapper
      * @return  mixed
      * @throws  StreamException
      */
-    public function lock(callable $c, $mode = LOCK_EX)
+    public function lock($c, $mode = LOCK_EX)
     {
         if (false === flock($this->resource, $mode)) {
             throw StreamException::couldNotLock();
