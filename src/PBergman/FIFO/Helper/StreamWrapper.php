@@ -41,7 +41,7 @@ class StreamWrapper
      * @return  mixed
      * @throws  StreamException
      */
-    public function lock($c, $mode = LOCK_EX)
+    public function lock(callable $c, $mode = LOCK_EX)
     {
         if (false === flock($this->resource, $mode)) {
             throw StreamException::couldNotLock();
@@ -119,7 +119,7 @@ class StreamWrapper
      */
     public function select($mode = self::SELECT_READ, $timeout = 0)
     {
-        $args = array(array(),array(),array(),$timeout);
+        $args = [[],[],[], $timeout];
 
         if (self::SELECT_READ  === (self::SELECT_READ  & $mode)) {
             $args[0][] = $this->resource;
