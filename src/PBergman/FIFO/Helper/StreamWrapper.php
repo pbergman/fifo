@@ -129,6 +129,6 @@ class StreamWrapper
             $args[1][] = $this->resource;
         }
 
-        return stream_select($args[0], $args[1], $args[2], $args[3]);
+        return stream_select(...$args);
     }
 }
