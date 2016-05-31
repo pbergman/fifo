@@ -61,7 +61,8 @@ class Transport
             }
         }
 
-        if (strrev($folder)[0] === '/') {
+        $sStrRevFolder = strrev($folder);
+        if ($sStrRevFolder[0] === '/') {
             $folder = substr($folder, 0, -1);
         }
 
